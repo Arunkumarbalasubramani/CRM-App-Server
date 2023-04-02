@@ -18,9 +18,15 @@ const userModel = new mongoose.Schema({
     type: String,
     required: true,
   },
-  userType: {
+  role: {
     type: String,
     required: true,
+  },
+  rights: {
+    type: String,
+    required: true,
+    enum: ["none", "create&update", "update"],
+    default: "none",
   },
 });
 
