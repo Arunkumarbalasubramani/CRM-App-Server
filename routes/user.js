@@ -4,6 +4,7 @@ const { generateHashedPassword, comparePassword } = require("../utils/bcrypt");
 const Users = require("../models/userModel");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
+const verifyJWT = require("../middleware/verifyToken");
 
 router.get("/", async (req, res) => {
   try {
@@ -64,7 +65,26 @@ router.post("/login", async (req, res) => {
         userDatafromDB.password
       );
       if (isPwCorrect) {
-        res.status(201).json({ Message: "User Logged In Successfully" });
+        const accessToken = jwt.sign(
+          {
+            userName: userDatafromDB.fname,
+          },
+          process.env.ACCESS_TOKEN_SECRET,
+          { expiresIn: "5m" }
+        );
+        const refreshToken = jwt.sign(
+          {
+            userName: userDatafromDB.fname,
+          },
+          process.env.REFRESH_TOKEN_SECRET,
+          { expiresIn: "1d" }
+        );
+        const saveToken = await Users.findOneAndUpdate(
+          { _id: userDatafromDB._id },
+          { $set: { refreshToken: [{ token: refreshToken }] } },
+          { new: true }
+        );
+        res.status(201).json({ accessToken });
       } else {
         res.status(403).json({ Error: "Wrong Credentials" });
       }
@@ -174,4 +194,39 @@ router.post("/change-role", async (req, res) => {
     .json({ Message: "Roles Changed for the User- " + usertoBeChanged.fname });
 });
 
+router.post("/login/refreshToken", async (req, res) => {
+  try {
+    const cookies = req.cookies;
+    if (!cookies?.jwt) {
+      res.send(401).json({ Error: "Missing Authorization" });
+    }
+    console.log(cookies.jwt);
+    const refreshToken = cookies.jwt;
+
+    const userDatafromDB = await Users.findOne({
+      refreshToken: { token: refreshToken },
+    });
+    if (!userDatafromDB) {
+      res.status(403).json({ Error: "Forbidden" });
+    } else {
+      jwt.verify(
+        refreshToken,
+        process.env.REFRESH_TOKEN_SECRET,
+        (err, decodedData) => {
+          if (err) {
+            res.status(403).json({ Message: "Invalid Token" });
+          }
+          const accessToken = jwt.sign(
+            { userName: decodedData.userName },
+            process.env.ACCESS_TOKEN_SECRET,
+            { expiresIn: "5m" }
+          );
+          res.send({ accessToken });
+        }
+      );
+    }
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
 module.exports = router;

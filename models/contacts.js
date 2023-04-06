@@ -20,6 +20,10 @@ const contactsSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  serviceRequests: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "ServiceRequest",
+  },
 });
 
 module.exports = mongoose.model("Contacts", contactsSchema);

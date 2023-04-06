@@ -6,7 +6,8 @@ const Leads = require("../models/leads");
 const Contacts = require("../models/contacts");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
-
+const Users = require("../models/userModel");
+const verifyJWT = require("../middleware/verifyToken");
 router.post("/service-requests/add", async (req, res) => {
   try {
     const requestId = Math.floor(Math.random() * 100000 + 1);
@@ -14,6 +15,21 @@ router.post("/service-requests/add", async (req, res) => {
 
     const addservice = new ServiceRequest(data);
     await addservice.save();
+    const userDetails = await Users.findOneAndUpdate(
+      {
+        email: req.body.assignedTo,
+      },
+      { $addToSet: { serviceRequests: addservice._id } },
+      { new: true }
+    );
+
+    const contactDetails = await Contacts.findOneAndUpdate(
+      {
+        contactEmail: req.body.customer,
+      },
+      { $addToSet: { serviceRequests: addservice._id } },
+      { new: true }
+    );
     res.status(201).json({
       Message: "Service Request Added ",
       serviceRequestId: addservice._id,
@@ -81,8 +97,33 @@ router.get("/leads", async (req, res) => {
     res.status(500).json({ Error: `${error}` });
   }
 });
+router.get("/leads/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const leadsData = await Leads.find({ _id: id });
+    res.status(201).send(leadsData);
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
 
-router.get("/contacts", async (req, res) => {
+router.post("/leads/:id/edit", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const dataTobeEdited = req.body;
+    const leadsData = await Leads.findOneAndUpdate(
+      { _id: id },
+      dataTobeEdited,
+      { new: true }
+    );
+    await leadsData.save();
+    res.status(201).send(leadsData);
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
+
+router.get("/contacts", verifyJWT, async (req, res) => {
   try {
     const contactsData = await Contacts.find({});
     res.status(201).send(contactsData);
@@ -90,6 +131,16 @@ router.get("/contacts", async (req, res) => {
     res.status(500).json({ Error: `${error}` });
   }
 });
+router.get("/contacts/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
+    const contactsData = await Contacts.find({ contactEmail: email });
+    res.status(201).send(contactsData);
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
+
 router.get("/service-requests", async (req, res) => {
   try {
     const data = await ServiceRequest.find({});
@@ -102,12 +153,56 @@ router.get("/service-requests", async (req, res) => {
 router.get("/service-requests/:requestId", async (req, res) => {
   try {
     const { requestId } = req.params;
-    const data = await ServiceRequest.find({ requestId: requestId });
+    const data = await ServiceRequest.findById(requestId);
+
     if (!data) {
       res.status(404).json({ Error: "Not Found" });
     } else {
       res.status(201).send(data);
     }
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
+router.post("/service-requests/:requestId/edit", async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const data = req.body;
+    const updatedData = await ServiceRequest.findOneAndUpdate(
+      { requestId: requestId },
+      data,
+      { new: true }
+    );
+    await updatedData.save();
+    if (!data) {
+      res.status(404).json({ Error: "Not Found" });
+    } else {
+      res.status(201).send(updatedData);
+    }
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
+
+router.get("/contacts/find/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const contactsData = await Contacts.findById(id);
+    res.status(201).send(contactsData);
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
+
+router.post("/contacts/:id/edit", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const data = req.body;
+    const contactsData = await Contacts.findOneAndUpdate({ _id: id }, data, {
+      new: true,
+    });
+    await contactsData.save();
+    res.status(201).send(contactsData);
   } catch (error) {
     res.status(500).json({ Error: `${error}` });
   }

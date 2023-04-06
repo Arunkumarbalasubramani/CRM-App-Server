@@ -5,8 +5,11 @@ const app = express();
 const connection = require("./db/connection");
 const userRoutes = require("./routes/user");
 const crmTaskRoutes = require("./routes/crmtasks");
+
+const cookieParser = require("cookie-parser");
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 connection();
 app.use("/users", userRoutes);
 app.use("/crm", crmTaskRoutes);
