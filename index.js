@@ -5,9 +5,12 @@ const app = express();
 const connection = require("./db/connection");
 const userRoutes = require("./routes/user");
 const crmTaskRoutes = require("./routes/crmtasks");
-
+const corsOptions = require("./config/corsOptions");
 const cookieParser = require("cookie-parser");
-app.use(cors());
+const credentials = require("./middleware/credentials");
+
+app.use(credentials);
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(cookieParser());
 connection();

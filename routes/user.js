@@ -6,6 +6,7 @@ const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const verifyJWT = require("../middleware/verifyToken");
 
+//API for All Users
 router.get("/", async (req, res) => {
   try {
     const userData = await Users.find({});
@@ -15,6 +16,7 @@ router.get("/", async (req, res) => {
   }
 });
 
+//API for Finding the User by userEmail
 router.get("/find/:useremail", async (req, res) => {
   try {
     const { useremail } = req.params;
@@ -25,6 +27,7 @@ router.get("/find/:useremail", async (req, res) => {
   }
 });
 
+//API for Deleting the Users
 router.post("/delete/:useremail", async (req, res) => {
   try {
     const { useremail } = req.params;
@@ -36,6 +39,7 @@ router.post("/delete/:useremail", async (req, res) => {
   }
 });
 
+//API for registering the User
 router.post("/register_user", async (req, res) => {
   try {
     const userEmail = req.body.email;
@@ -54,46 +58,7 @@ router.post("/register_user", async (req, res) => {
   }
 });
 
-router.post("/login", async (req, res) => {
-  try {
-    const userDatafromDB = await Users.findOne({ email: req.body.email });
-    if (!userDatafromDB) {
-      res.status(404).json({ Error: "User Not found" });
-    } else {
-      const isPwCorrect = await comparePassword(
-        req.body.password,
-        userDatafromDB.password
-      );
-      if (isPwCorrect) {
-        const accessToken = jwt.sign(
-          {
-            userName: userDatafromDB.fname,
-          },
-          process.env.ACCESS_TOKEN_SECRET,
-          { expiresIn: "5m" }
-        );
-        const refreshToken = jwt.sign(
-          {
-            userName: userDatafromDB.fname,
-          },
-          process.env.REFRESH_TOKEN_SECRET,
-          { expiresIn: "1d" }
-        );
-        const saveToken = await Users.findOneAndUpdate(
-          { _id: userDatafromDB._id },
-          { $set: { refreshToken: [{ token: refreshToken }] } },
-          { new: true }
-        );
-        res.status(201).json({ accessToken });
-      } else {
-        res.status(403).json({ Error: "Wrong Credentials" });
-      }
-    }
-  } catch (error) {
-    res.status(500).json({ Error: `${error}` });
-  }
-});
-
+//API for generating password reset Link
 router.post("/resetpassword", async (req, res) => {
   try {
     const userDetails = await Users.findOne({ email: req.body.email });
@@ -140,6 +105,7 @@ router.post("/resetpassword", async (req, res) => {
   }
 });
 
+//API for resetting the Password
 router.post("/passwordreset/:id/:token", async (req, res) => {
   try {
     const { id, token } = req.params;
@@ -176,6 +142,7 @@ router.post("/passwordreset/:id/:token", async (req, res) => {
   }
 });
 
+//API for Changing the rights of the employees
 router.post("/change-rights", async (req, res) => {
   const usertoBeChanged = await Users.findByIdAndUpdate(req.body.userId, {
     rights: req.body.updatedRights,
@@ -185,6 +152,7 @@ router.post("/change-rights", async (req, res) => {
     .json({ Message: `Rights Changed for the User- ${usertoBeChanged.fname}` });
 });
 
+//API for Changing the Role of Users
 router.post("/change-role", async (req, res) => {
   const usertoBeChanged = await Users.findByIdAndUpdate(req.body._id, {
     role: req.body.role,
@@ -194,11 +162,59 @@ router.post("/change-role", async (req, res) => {
     .json({ Message: "Roles Changed for the User- " + usertoBeChanged.fname });
 });
 
+//Login API
+router.post("/login", async (req, res) => {
+  try {
+    const userDatafromDB = await Users.findOne({ email: req.body.email });
+    if (!userDatafromDB) {
+      res.status(404).json({ Error: "User Not found" });
+    } else {
+      const isPwCorrect = await comparePassword(
+        req.body.password,
+        userDatafromDB.password
+      );
+      if (isPwCorrect) {
+        const accessToken = jwt.sign(
+          {
+            userName: userDatafromDB.fname,
+          },
+          process.env.ACCESS_TOKEN_SECRET,
+          { expiresIn: "5m" }
+        );
+        const refreshToken = jwt.sign(
+          {
+            userName: userDatafromDB.fname,
+          },
+          process.env.REFRESH_TOKEN_SECRET,
+          { expiresIn: "1d" }
+        );
+        const saveToken = await Users.findOneAndUpdate(
+          { _id: userDatafromDB._id },
+          { $set: { refreshToken: { token: refreshToken } } },
+          { new: true }
+        );
+        res.cookie("jwt", refreshToken, {
+          httpOnly: true,
+          sameSite: "None",
+          secure: false,
+          maxAge: 24 * 60 * 60 * 1000,
+        });
+        res.status(201).json({ accessToken });
+      } else {
+        res.status(403).json({ Error: "Wrong Credentials" });
+      }
+    }
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
+
+//API for Generating a Refresh token
 router.post("/login/refreshToken", async (req, res) => {
   try {
     const cookies = req.cookies;
     if (!cookies?.jwt) {
-      res.send(401).json({ Error: "Missing Authorization" });
+      return res.sendStatus(401);
     }
     console.log(cookies.jwt);
     const refreshToken = cookies.jwt;
@@ -214,19 +230,57 @@ router.post("/login/refreshToken", async (req, res) => {
         process.env.REFRESH_TOKEN_SECRET,
         (err, decodedData) => {
           if (err) {
-            res.status(403).json({ Message: "Invalid Token" });
+            return res.status(403).json({ Message: "Invalid Token" });
           }
           const accessToken = jwt.sign(
             { userName: decodedData.userName },
             process.env.ACCESS_TOKEN_SECRET,
             { expiresIn: "5m" }
           );
-          res.send({ accessToken });
+          return res.json({ accessToken });
         }
       );
     }
   } catch (error) {
-    res.status(500).json({ Error: `${error}` });
+    return res.status(500).json({ Error: `${error}` });
   }
 });
+
+//Logout API
+router.get("/logout", async (req, res) => {
+  try {
+    const cookies = req.cookies;
+    if (!cookies?.jwt) {
+      return res.sendStatus(204);
+    }
+
+    const refreshToken = cookies.jwt;
+
+    const userDatafromDB = await Users.findOne({
+      refreshToken: { token: refreshToken },
+    });
+    if (!userDatafromDB) {
+      res.clearCookie("jwt", {
+        httpOnly: true,
+        sameSite: "None",
+        secure: false,
+        maxAge: 24 * 60 * 60 * 1000,
+      });
+      return res.sendStatus(204);
+    }
+    await Users.updateOne(
+      { refreshToken: { token: refreshToken } },
+      { $set: { refreshToken: { token: "" } } }
+    );
+    res.clearCookie("jwt", {
+      httpOnly: true,
+      sameSite: "None",
+      secure: false,
+    });
+    res.sendStatus(204);
+  } catch (error) {
+    return res.status(500).json({ Error: `${error}` });
+  }
+});
+
 module.exports = router;
