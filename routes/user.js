@@ -8,7 +8,7 @@ const nodemailer = require("nodemailer");
 const verifyJWTAndRole = require("../middleware/verifyToken");
 
 //API for All Users
-router.get("/", verifyJWTAndRole("user"), async (req, res) => {
+router.get("/", verifyJWTAndRole(["manager", "admin"]), async (req, res) => {
   try {
     const userData = await Users.find({});
     res.send(userData);
@@ -17,17 +17,8 @@ router.get("/", verifyJWTAndRole("user"), async (req, res) => {
   }
 });
 
-//API for getting a single user from access token
-router.get("/:accesstoken", async (req, res) => {
-  try {
-    const userData = await Users.find({});
-    res.send(userData);
-  } catch (error) {
-    res.status(500).json({ Error: `${error}` });
-  }
-});
 //API for Finding the User by userEmail
-router.get("/find/:useremail", async (req, res) => {
+router.get("/find/:useremail", verifyJWTAndRole("admin"), async (req, res) => {
   try {
     const { useremail } = req.params;
     const userData = await Users.findOne({ email: useremail });
@@ -38,48 +29,47 @@ router.get("/find/:useremail", async (req, res) => {
 });
 
 //API for Deleting the Users
-router.post("/delete/:useremail", async (req, res) => {
-  try {
-    const { useremail } = req.params;
-    const userData = await Users.findOneAndDelete({ email: useremail });
-
-    res.status(201).json({ Messgae: "User Deleted Successfully" });
-  } catch (error) {
-    res.status(500).json({ Error: `${error}` });
-  }
-});
-
-//API for registering the User
 router.post(
-  "/register_user",
+  "/delete/:useremail",
   verifyJWTAndRole("admin"),
-
   async (req, res) => {
     try {
-      const userEmail = req.body.email;
-      const isUser = await Users.findOne({ email: userEmail });
-      if (isUser) {
-        res.status(403).json({ Error: "User Already Found" });
-      } else {
-        const passwordToBeHashed = req.body.password;
+      const { useremail } = req.params;
+      const userData = await Users.findOneAndDelete({ email: useremail });
 
-        const hashedPassword = await generateHashedPassword(passwordToBeHashed);
-        const user = new Users({
-          ...req.body,
-          password: hashedPassword,
-          role: req.body.role ? req.body.role : "user",
-        });
-        await user.save();
-        res.status(201).json({ Message: "User Added Successfully", user });
-      }
+      res.status(201).json({ Messgae: "User Deleted Successfully" });
     } catch (error) {
       res.status(500).json({ Error: `${error}` });
     }
   }
 );
 
+//API for registering the User
+router.post("/register_user", verifyJWTAndRole("admin"), async (req, res) => {
+  try {
+    const userEmail = req.body.email;
+    const isUser = await Users.findOne({ email: userEmail });
+    if (isUser) {
+      res.status(403).json({ Error: "User Already Found" });
+    } else {
+      const passwordToBeHashed = req.body.password;
+
+      const hashedPassword = await generateHashedPassword(passwordToBeHashed);
+      const user = new Users({
+        ...req.body,
+        password: hashedPassword,
+        role: req.body.role ? req.body.role : "user",
+      });
+      await user.save();
+      res.status(201).json({ Message: "User Added Successfully", user });
+    }
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
+
 //API for generating password reset Link
-router.post("/resetpassword", async (req, res) => {
+router.post("/resetpassword", verifyJWTAndRole("admin"), async (req, res) => {
   try {
     const userDetails = await Users.findOne({ email: req.body.email });
     if (!userDetails) {
@@ -163,7 +153,7 @@ router.post("/passwordreset/:id/:token", async (req, res) => {
 });
 
 //API for Changing the rights of the employees
-router.post("/change-rights", async (req, res) => {
+router.post("/change-rights", verifyJWTAndRole("manager"), async (req, res) => {
   const usertoBeChanged = await Users.findByIdAndUpdate(req.body.userId, {
     rights: req.body.updatedRights,
   });
@@ -173,7 +163,7 @@ router.post("/change-rights", async (req, res) => {
 });
 
 //API for Changing the Role of Users
-router.post("/change-role", async (req, res) => {
+router.post("/change-role", verifyJWTAndRole("admin"), async (req, res) => {
   const usertoBeChanged = await Users.findByIdAndUpdate(req.body._id, {
     role: req.body.role,
   });

@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const verifyJWTAndRole = (allowedRole) => {
+const verifyJWTAndRole = (allowedRoles) => {
   return (req, res, next) => {
     const authHeader = req.headers.authorization || req.headers.Authorization;
     if (!authHeader?.startsWith("Bearer ")) {
@@ -17,10 +17,9 @@ const verifyJWTAndRole = (allowedRole) => {
       if (err) {
         return res.status(403).json({ Error: "Invalid Token" });
       }
-      if (decodedData.roles !== allowedRole) {
+      if (!allowedRoles.includes(decodedData.roles)) {
         return res.status(403).json({ error: "Forbidden" });
       }
-
       req.user = decodedData.userName;
       req.roles = decodedData.roles;
 
