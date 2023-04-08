@@ -7,7 +7,7 @@ const Contacts = require("../models/contacts");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const Users = require("../models/userModel");
-const verifyJWT = require("../middleware/verifyToken");
+
 router.post("/service-requests/add", async (req, res) => {
   try {
     const requestId = Math.floor(Math.random() * 100000 + 1);
@@ -54,40 +54,48 @@ router.post("/leads/add", async (req, res) => {
   }
 });
 
-router.post("/contacts/add", async (req, res) => {
-  try {
-    const data = req.body;
-    const addContact = await Contacts.insertMany(data);
+router.post(
+  "/contacts/add",
 
-    res.status(201).json({
-      Message: "Contacts Added",
-      count: addContact.length,
-      contactIds: addContact.map((contact) => contact._id),
-    });
-  } catch (error) {
-    res.status(500).json({ Error: `${error}` });
+  async (req, res) => {
+    try {
+      const data = req.body;
+      const addContact = await Contacts.insertMany(data);
+
+      res.status(201).json({
+        Message: "Contacts Added",
+        count: addContact.length,
+        contactIds: addContact.map((contact) => contact._id),
+      });
+    } catch (error) {
+      res.status(500).json({ Error: `${error}` });
+    }
   }
-});
+);
 
-router.get("/dashboard", async (req, res) => {
-  try {
-    const serviceRequestCount = await ServiceRequest.aggregate([
-      { $count: "count" },
-    ]);
+router.get(
+  "/dashboard",
 
-    const leadCount = await Leads.aggregate([{ $count: "count" }]);
+  async (req, res) => {
+    try {
+      const serviceRequestCount = await ServiceRequest.aggregate([
+        { $count: "count" },
+      ]);
 
-    const contactCount = await Contacts.aggregate([{ $count: "count" }]);
+      const leadCount = await Leads.aggregate([{ $count: "count" }]);
 
-    res.json({
-      serviceRequestCount: serviceRequestCount[0].count,
-      leadCount: leadCount[0].count,
-      contactCount: contactCount[0].count,
-    });
-  } catch (error) {
-    res.status(500).json({ Error: `${error}` });
+      const contactCount = await Contacts.aggregate([{ $count: "count" }]);
+
+      res.json({
+        serviceRequestCount: serviceRequestCount[0].count,
+        leadCount: leadCount[0].count,
+        contactCount: contactCount[0].count,
+      });
+    } catch (error) {
+      res.status(500).json({ Error: `${error}` });
+    }
   }
-});
+);
 
 router.get("/leads", async (req, res) => {
   try {
@@ -107,23 +115,27 @@ router.get("/leads/:id", async (req, res) => {
   }
 });
 
-router.post("/leads/:id/edit", async (req, res) => {
-  try {
-    const { id } = req.params;
-    const dataTobeEdited = req.body;
-    const leadsData = await Leads.findOneAndUpdate(
-      { _id: id },
-      dataTobeEdited,
-      { new: true }
-    );
-    await leadsData.save();
-    res.status(201).send(leadsData);
-  } catch (error) {
-    res.status(500).json({ Error: `${error}` });
-  }
-});
+router.post(
+  "/leads/:id/edit",
 
-router.get("/contacts", verifyJWT, async (req, res) => {
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const dataTobeEdited = req.body;
+      const leadsData = await Leads.findOneAndUpdate(
+        { _id: id },
+        dataTobeEdited,
+        { new: true }
+      );
+      await leadsData.save();
+      res.status(201).send(leadsData);
+    } catch (error) {
+      res.status(500).json({ Error: `${error}` });
+    }
+  }
+);
+
+router.get("/contacts", async (req, res) => {
   try {
     const contactsData = await Contacts.find({});
     res.status(201).send(contactsData);

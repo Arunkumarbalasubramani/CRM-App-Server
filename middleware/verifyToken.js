@@ -1,23 +1,32 @@
 const jwt = require("jsonwebtoken");
 
-const verifyJWT = (req, res, next) => {
-  const authHeader = req.headers.authorization;
-  if (!authHeader) {
-    res.status(401).json({ Error: "Missing Authourization in Header" });
-  }
-
-  const token = authHeader.split(" ")[1];
-  if (!token) {
-    return res.status(401).json({ Error: "Missing Token" });
-  }
-
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, user) => {
-    if (err) {
-      res.status(403).json({ Error: "Invalid Token" });
+const verifyJWTAndRole = (allowedRole) => {
+  return (req, res, next) => {
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+      return res.sendStatus(401);
     }
-    req.user = user.userName;
-    next();
-  });
+
+    const token = authHeader.split(" ")[1];
+
+    if (!token) {
+      return res.status(401).json({ Error: "Missing Token" });
+    }
+
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decodedData) => {
+      if (err) {
+        return res.status(403).json({ Error: "Invalid Token" });
+      }
+      if (decodedData.roles !== allowedRole) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+
+      req.user = decodedData.userName;
+      req.roles = decodedData.roles;
+
+      next();
+    });
+  };
 };
 
-module.exports = verifyJWT;
+module.exports = verifyJWTAndRole;

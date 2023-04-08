@@ -4,10 +4,11 @@ const { generateHashedPassword, comparePassword } = require("../utils/bcrypt");
 const Users = require("../models/userModel");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
-const verifyJWT = require("../middleware/verifyToken");
+
+const verifyJWTAndRole = require("../middleware/verifyToken");
 
 //API for All Users
-router.get("/", async (req, res) => {
+router.get("/", verifyJWTAndRole("user"), async (req, res) => {
   try {
     const userData = await Users.find({});
     res.send(userData);
@@ -16,6 +17,15 @@ router.get("/", async (req, res) => {
   }
 });
 
+//API for getting a single user from access token
+router.get("/:accesstoken", async (req, res) => {
+  try {
+    const userData = await Users.find({});
+    res.send(userData);
+  } catch (error) {
+    res.status(500).json({ Error: `${error}` });
+  }
+});
 //API for Finding the User by userEmail
 router.get("/find/:useremail", async (req, res) => {
   try {
@@ -40,23 +50,33 @@ router.post("/delete/:useremail", async (req, res) => {
 });
 
 //API for registering the User
-router.post("/register_user", async (req, res) => {
-  try {
-    const userEmail = req.body.email;
-    const isUser = await Users.findOne({ email: userEmail });
-    if (isUser) {
-      res.status(403).json({ Error: "User Already Found" });
-    } else {
-      const passwordToBeHashed = req.body.password;
-      const hashedPassword = await generateHashedPassword(passwordToBeHashed);
-      const user = new Users({ ...req.body, password: hashedPassword });
-      await user.save();
-      res.status(201).json({ Message: "User Added Successfully", user });
+router.post(
+  "/register_user",
+  verifyJWTAndRole("admin"),
+
+  async (req, res) => {
+    try {
+      const userEmail = req.body.email;
+      const isUser = await Users.findOne({ email: userEmail });
+      if (isUser) {
+        res.status(403).json({ Error: "User Already Found" });
+      } else {
+        const passwordToBeHashed = req.body.password;
+
+        const hashedPassword = await generateHashedPassword(passwordToBeHashed);
+        const user = new Users({
+          ...req.body,
+          password: hashedPassword,
+          role: req.body.role ? req.body.role : "user",
+        });
+        await user.save();
+        res.status(201).json({ Message: "User Added Successfully", user });
+      }
+    } catch (error) {
+      res.status(500).json({ Error: `${error}` });
     }
-  } catch (error) {
-    res.status(500).json({ Error: `${error}` });
   }
-});
+);
 
 //API for generating password reset Link
 router.post("/resetpassword", async (req, res) => {
@@ -177,7 +197,9 @@ router.post("/login", async (req, res) => {
         const accessToken = jwt.sign(
           {
             userName: userDatafromDB.fname,
+            roles: userDatafromDB.role,
           },
+
           process.env.ACCESS_TOKEN_SECRET,
           { expiresIn: "5m" }
         );
@@ -199,6 +221,8 @@ router.post("/login", async (req, res) => {
           secure: false,
           maxAge: 24 * 60 * 60 * 1000,
         });
+        req.accessToken = accessToken;
+
         res.status(201).json({ accessToken });
       } else {
         res.status(403).json({ Error: "Wrong Credentials" });
@@ -216,7 +240,7 @@ router.post("/login/refreshToken", async (req, res) => {
     if (!cookies?.jwt) {
       return res.sendStatus(401);
     }
-    console.log(cookies.jwt);
+
     const refreshToken = cookies.jwt;
 
     const userDatafromDB = await Users.findOne({
@@ -229,14 +253,17 @@ router.post("/login/refreshToken", async (req, res) => {
         refreshToken,
         process.env.REFRESH_TOKEN_SECRET,
         (err, decodedData) => {
-          if (err) {
+          if (err || userDatafromDB.fname === decodedData.userName) {
             return res.status(403).json({ Message: "Invalid Token" });
           }
+
           const accessToken = jwt.sign(
-            { userName: decodedData.userName },
+            { userName: decodedData.userName, roles: decodedData.roles },
+
             process.env.ACCESS_TOKEN_SECRET,
             { expiresIn: "5m" }
           );
+
           return res.json({ accessToken });
         }
       );

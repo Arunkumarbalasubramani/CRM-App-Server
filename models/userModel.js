@@ -32,7 +32,7 @@ const userModel = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: "ServiceRequest",
   },
-  refreshToken: { token: { type: String, required: true } },
+  refreshToken: { token: { type: String } },
 });
 
 module.exports = mongoose.model("Users", userModel);
