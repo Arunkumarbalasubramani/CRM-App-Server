@@ -1,5 +1,5 @@
 const allowedOrigins = [
-  "https://yoursite.com",
+  "https://crm-client-app-akb.netlify.app/",
   "http://localhost:5000",
   "http://localhost:3000",
 ];
