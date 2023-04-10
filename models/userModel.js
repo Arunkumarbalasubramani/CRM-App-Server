@@ -25,14 +25,16 @@ const userModel = new mongoose.Schema({
   rights: {
     type: String,
     required: true,
-    enum: ["none", "create&update", "update"],
+    enum: ["none", "creator", "editor"],
     default: "none",
   },
   serviceRequests: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "ServiceRequest",
   },
-  refreshToken: { token: { type: String } },
+  refreshToken: {
+    token: { type: String, required: false },
+  },
 });
 
 module.exports = mongoose.model("Users", userModel);

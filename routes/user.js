@@ -8,7 +8,7 @@ const nodemailer = require("nodemailer");
 const verifyJWTAndRole = require("../middleware/verifyToken");
 
 //API for All Users
-router.get("/", verifyJWTAndRole(["manager", "admin"]), async (req, res) => {
+router.get("/", async (req, res) => {
   try {
     const userData = await Users.find({});
     res.send(userData);
@@ -152,25 +152,19 @@ router.post("/passwordreset/:id/:token", async (req, res) => {
   }
 });
 
-//API for Changing the rights of the employees
-router.post("/change-rights", verifyJWTAndRole("manager"), async (req, res) => {
-  const usertoBeChanged = await Users.findByIdAndUpdate(req.body.userId, {
-    rights: req.body.updatedRights,
-  });
-  res
-    .status(201)
-    .json({ Message: `Rights Changed for the User- ${usertoBeChanged.fname}` });
-});
-
 //API for Changing the Role of Users
-router.post("/change-role", verifyJWTAndRole("admin"), async (req, res) => {
-  const usertoBeChanged = await Users.findByIdAndUpdate(req.body._id, {
-    role: req.body.role,
-  });
-  res
-    .status(201)
-    .json({ Message: "Roles Changed for the User- " + usertoBeChanged.fname });
-});
+router.post(
+  "/change-role",
+  verifyJWTAndRole(["admin", "manager"]),
+  async (req, res) => {
+    const usertoBeChanged = await Users.findByIdAndUpdate(req.body._id, {
+      role: req.body.role,
+    });
+    res.status(201).json({
+      Message: "Roles Changed for the User- " + usertoBeChanged.fname,
+    });
+  }
+);
 
 //Login API
 router.post("/login", async (req, res) => {
@@ -200,20 +194,24 @@ router.post("/login", async (req, res) => {
           process.env.REFRESH_TOKEN_SECRET,
           { expiresIn: "1d" }
         );
-        const saveToken = await Users.findOneAndUpdate(
+
+        const saveToken = await Users.findByIdAndUpdate(
           { _id: userDatafromDB._id },
-          { $set: { refreshToken: { token: refreshToken } } },
+          { refreshToken: { token: refreshToken } },
           { new: true }
         );
+
         res.cookie("jwt", refreshToken, {
           httpOnly: true,
           sameSite: "None",
-          secure: false,
+          secure: true,
           maxAge: 24 * 60 * 60 * 1000,
         });
         req.accessToken = accessToken;
 
-        res.status(201).json({ accessToken });
+        res
+          .status(201)
+          .json({ roles: userDatafromDB.role, accessToken, refreshToken });
       } else {
         res.status(403).json({ Error: "Wrong Credentials" });
       }
