@@ -209,9 +209,7 @@ router.post("/login", async (req, res) => {
         });
         req.accessToken = accessToken;
 
-        res
-          .status(201)
-          .json({ roles: userDatafromDB.role, accessToken, refreshToken });
+        res.status(201).json({ roles: userDatafromDB.role, accessToken });
       } else {
         res.status(403).json({ Error: "Wrong Credentials" });
       }
