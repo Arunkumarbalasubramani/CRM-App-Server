@@ -8,9 +8,9 @@ const crmTaskRoutes = require("./routes/crmtasks");
 const corsOptions = require("./config/corsOptions");
 const cookieParser = require("cookie-parser");
 const credentials = require("./middleware/credentials");
-
-app.use(credentials);
 app.use(cors(corsOptions));
+app.use(credentials);
+
 app.use(express.json());
 app.use(cookieParser());
 connection();
